@@ -1,5 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react'
 
+// 添加 CSS 动画样式
+const pulseAnimation = `
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+`
+
+// 注入样式到页面
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style')
+  style.textContent = pulseAnimation
+  document.head.appendChild(style)
+}
+
 const ROWS = 20
 const COLS = 10
 const EMPTY = 0
@@ -67,7 +83,7 @@ const LANGS = {
     start: '開始遊戲',
     pause: '暫停',
     resume: '繼續',
-    gameover: '遊戲結束',
+    gameover: '你輸了',
     restart: '重新開始',
     score: '分數',
     lines: '消除行數',
@@ -80,7 +96,7 @@ const LANGS = {
     start: 'Start',
     pause: 'Pause',
     resume: 'Resume',
-    gameover: 'Game Over',
+    gameover: 'You Lost',
     restart: 'Restart',
     score: 'Score',
     lines: 'Lines',
@@ -127,6 +143,7 @@ function TetrisGame() {
   const [hold, setHold] = useState(null)
   const [canHold, setCanHold] = useState(true)
   const [comboCount, setComboCount] = useState(0)
+  const [gameOver, setGameOver] = useState(false)
 
   // 防止頁面滾動
   useEffect(() => {
@@ -147,13 +164,15 @@ function TetrisGame() {
 
   // 初始化新方塊
   const spawn = () => {
+    let newPiece
     // 如果沒有預覽塊，生成一個
     if (!nextPiece) {
-      const newPiece = randomShape()
+      newPiece = randomShape()
       setNextPiece(newPiece)
       setCurrent(newPiece)
     } else {
       // 使用預覽塊作為當前方塊
+      newPiece = nextPiece
       setCurrent(nextPiece)
       // 生成新的預覽塊
       setNextPiece(randomShape())
@@ -161,6 +180,12 @@ function TetrisGame() {
     
     setPos({ x: 3, y: 0 })
     setCanHold(true)
+    
+    // 檢查遊戲是否結束（新方塊是否與已有方塊重疊）
+    if (collide(board, newPiece, { x: 3, y: 0 })) {
+      setGameOver(true)
+      setRunning(false)
+    }
   }
 
   // 合併方塊到棋盤
@@ -236,6 +261,7 @@ function TetrisGame() {
   const startGame = () => {
     setBoard(createEmptyBoard())
     setNextPiece(randomShape())
+    setGameOver(false)
     spawn()
     setRunning(true)
     setPaused(false)
@@ -262,6 +288,7 @@ function TetrisGame() {
     setHold(null)
     setCanHold(true)
     setComboCount(0)
+    setGameOver(false)
   }
 
   // 暫存方塊
@@ -292,7 +319,7 @@ function TetrisGame() {
         e.preventDefault()
       }
       
-      if (!running) return
+      if (!running || gameOver) return
       
       if (e.key === 'ArrowLeft') {
         if (!current) return
@@ -581,7 +608,9 @@ function TetrisGame() {
         background: 'linear-gradient(145deg, #1a1a1a, #2a2a2a)', 
         padding: 12,
         borderRadius: '8px',
-        boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)'
+        boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)',
+        opacity: gameOver ? 0.3 : 1,
+        transition: 'opacity 0.3s ease'
       }}>
         {display.map((row, y) => (
           <div key={y} style={{ display: 'flex' }}>
@@ -710,23 +739,55 @@ function TetrisGame() {
               zIndex: 100
             }}>
               {!running ? (
-                <button 
-                  onClick={startGame}
-                  style={{
-                    padding: '16px 32px',
-                    background: 'rgba(76, 175, 80, 0.9)',
-                    color: '#fff',
-                    border: '2px solid #4CAF50',
-                    borderRadius: '8px',
-                    fontSize: '18px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    backdropFilter: 'blur(5px)',
-                    boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-                  }}
-                >
-                  {LANGS[lang].start}
-                </button>
+                gameOver ? (
+                  <>
+                    <div style={{
+                      color: '#ff0000',
+                      fontSize: '32px',
+                      fontWeight: 'bold',
+                      marginBottom: '16px',
+                      textShadow: '3px 3px 6px rgba(0,0,0,0.9), 0 0 20px rgba(255,0,0,0.5)',
+                      animation: 'pulse 1s ease-in-out infinite'
+                    }}>
+                      {LANGS[lang].gameover}
+                    </div>
+                    <button 
+                      onClick={restartGame}
+                      style={{
+                        padding: '16px 32px',
+                        background: 'rgba(244, 67, 54, 0.9)',
+                        color: '#fff',
+                        border: '2px solid #f44336',
+                        borderRadius: '8px',
+                        fontSize: '18px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        backdropFilter: 'blur(5px)',
+                        boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                      }}
+                    >
+                      {LANGS[lang].restart}
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    onClick={startGame}
+                    style={{
+                      padding: '16px 32px',
+                      background: 'rgba(76, 175, 80, 0.9)',
+                      color: '#fff',
+                      border: '2px solid #4CAF50',
+                      borderRadius: '8px',
+                      fontSize: '18px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      backdropFilter: 'blur(5px)',
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                    }}
+                  >
+                    {LANGS[lang].start}
+                  </button>
+                )
               ) : paused ? (
                 <>
                   <button 
@@ -767,23 +828,7 @@ function TetrisGame() {
               ) : null}
             </div>
             
-            {/* Combo顯示 - 覆蓋在遊戲畫面上 */}
-            {comboCount > 0 && (
-              <div style={{
-                position: 'absolute',
-                top: '20%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                color: '#ff6b6b',
-                fontSize: '28px',
-                fontWeight: 'bold',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                zIndex: 100,
-                animation: 'pulse 0.5s ease-in-out'
-              }}>
-                {LANGS[lang].combo} x{comboCount}!
-              </div>
-            )}
+
             
             {/* 暫停提示 - 覆蓋在遊戲畫面上 */}
             {paused && (
