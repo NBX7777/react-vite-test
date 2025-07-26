@@ -52,13 +52,13 @@ const SHAPES = [
 
 const COLORS = [
   '#222', // EMPTY
-  '#00f0f0', // I
-  '#f0f000', // O
-  '#a000f0', // T
-  '#00f000', // S
-  '#f00000', // Z
-  '#0000f0', // J
-  '#f0a000', // L
+  '#00d4ff', // I - 亮藍色
+  '#ffd700', // O - 金色
+  '#9b59b6', // T - 紫色
+  '#2ecc71', // S - 綠色
+  '#e74c3c', // Z - 紅色
+  '#3498db', // J - 藍色
+  '#f39c12', // L - 橙色
 ]
 
 const LANGS = {
@@ -72,6 +72,8 @@ const LANGS = {
     score: '分數',
     lines: '消除行數',
     lang: 'English',
+    next: '下一個',
+    combo: '連擊',
   },
   en: {
     title: 'Tetris',
@@ -83,6 +85,8 @@ const LANGS = {
     score: 'Score',
     lines: 'Lines',
     lang: '中文',
+    next: 'NEXT',
+    combo: 'COMBO',
   },
 }
 
@@ -108,18 +112,21 @@ const clearLines = (b) => {
   while (newBoard.length < ROWS) {
     newBoard.unshift(Array(COLS).fill(EMPTY))
   }
+  
   return { newBoard, linesCleared }
 }
 
 function TetrisGame() {
   const [board, setBoard] = useState(createEmptyBoard())
   const [current, setCurrent] = useState(null)
+  const [nextPiece, setNextPiece] = useState(null)
   const [pos, setPos] = useState({ x: 3, y: 0 })
   const [running, setRunning] = useState(false)
   const [paused, setPaused] = useState(false)
   const [lang, setLang] = useState('zh')
   const [hold, setHold] = useState(null)
   const [canHold, setCanHold] = useState(true)
+  const [comboCount, setComboCount] = useState(0)
 
   // 防止頁面滾動
   useEffect(() => {
@@ -140,8 +147,18 @@ function TetrisGame() {
 
   // 初始化新方塊
   const spawn = () => {
-    const tetro = randomShape()
-    setCurrent(tetro)
+    // 如果沒有預覽塊，生成一個
+    if (!nextPiece) {
+      const newPiece = randomShape()
+      setNextPiece(newPiece)
+      setCurrent(newPiece)
+    } else {
+      // 使用預覽塊作為當前方塊
+      setCurrent(nextPiece)
+      // 生成新的預覽塊
+      setNextPiece(randomShape())
+    }
+    
     setPos({ x: 3, y: 0 })
     setCanHold(true)
   }
@@ -199,8 +216,16 @@ function TetrisGame() {
       } else {
         // 固定方塊
         const merged = merge(board, current, pos)
-        const { newBoard } = clearLines(merged)
+        const { newBoard, linesCleared } = clearLines(merged)
         setBoard(newBoard)
+        
+        // 更新combo計數
+        if (linesCleared > 0) {
+          setComboCount(prev => prev + 1)
+        } else {
+          setComboCount(0)
+        }
+        
         spawn()
       }
     }, 500)
@@ -210,11 +235,13 @@ function TetrisGame() {
   // 開始遊戲
   const startGame = () => {
     setBoard(createEmptyBoard())
+    setNextPiece(randomShape())
     spawn()
     setRunning(true)
     setPaused(false)
     setHold(null)
     setCanHold(true)
+    setComboCount(0)
   }
 
   // 暫停/繼續遊戲
@@ -228,11 +255,13 @@ function TetrisGame() {
   const restartGame = () => {
     setBoard(createEmptyBoard())
     setCurrent(null)
+    setNextPiece(null)
     setPos({ x: 3, y: 0 })
     setRunning(false)
     setPaused(false)
     setHold(null)
     setCanHold(true)
+    setComboCount(0)
   }
 
   // 暫存方塊
@@ -268,11 +297,15 @@ function TetrisGame() {
       if (e.key === 'ArrowLeft') {
         if (!current) return
         const next = { x: pos.x - 1, y: pos.y }
-        if (!collide(board, current, next)) setPos(next)
+        if (!collide(board, current, next)) {
+          setPos(next)
+        }
       } else if (e.key === 'ArrowRight') {
         if (!current) return
         const next = { x: pos.x + 1, y: pos.y }
-        if (!collide(board, current, next)) setPos(next)
+        if (!collide(board, current, next)) {
+          setPos(next)
+        }
       } else if (e.key === ' ') {
         if (!current) return
         // 空白鍵：硬降
@@ -282,8 +315,16 @@ function TetrisGame() {
         }
         // 直接鎖定方塊並產生新方塊
         const merged = merge(board, current, { x: pos.x, y: dropY })
-        const { newBoard } = clearLines(merged)
+        const { newBoard, linesCleared } = clearLines(merged)
         setBoard(newBoard)
+        
+        // 更新combo計數
+        if (linesCleared > 0) {
+          setComboCount(prev => prev + 1)
+        } else {
+          setComboCount(0)
+        }
+        
         spawn()
       } else if (e.key === 'ArrowUp') {
         if (!current) return
@@ -296,7 +337,9 @@ function TetrisGame() {
         if (!current) return
         // 下鍵：加速下落
         const next = { x: pos.x, y: pos.y + 1 }
-        if (!collide(board, current, next)) setPos(next)
+        if (!collide(board, current, next)) {
+          setPos(next)
+        }
       } else if (e.key === 'Escape') {
         // ESC 鍵：暫停/繼續
         if (running) {
@@ -319,13 +362,22 @@ function TetrisGame() {
       <div style={{
         width: 120,
         height: 120,
-        background: '#222',
+        background: 'linear-gradient(145deg, #1a1a1a, #2a2a2a)',
         padding: 8,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center'
+        alignItems: 'center',
+        borderRadius: '6px',
+        boxShadow: 'inset 0 0 15px rgba(0,0,0,0.3)'
       }}>
-        <div style={{ color: '#fff', fontSize: '12px', marginBottom: 8, textAlign: 'center' }}>
+        <div style={{ 
+          color: '#fff', 
+          fontSize: '12px', 
+          marginBottom: 8, 
+          textAlign: 'center',
+          fontWeight: 'bold',
+          textShadow: '0 1px 2px rgba(0,0,0,0.8)'
+        }}>
           {lang === 'zh' ? '暫存' : 'HOLD'}
         </div>
         <div style={{
@@ -343,13 +395,35 @@ function TetrisGame() {
                     <div
                       key={x}
                       style={{
-                        width: 50,
-                        height: 50,
-                        background: cell ? COLORS[hold.type] : '#222',
-                        border: '1px solid #333',
-                        opacity: canHold ? 1 : 0.5
+                        width: 25,
+                        height: 25,
+                        background: cell !== 0 ? 
+                          `linear-gradient(135deg, ${COLORS[hold.type]}, ${COLORS[hold.type]}dd)` : 
+                          '#1a1a1a',
+                        border: cell !== 0 ? 
+                          `1px solid ${COLORS[hold.type]}80` : 
+                          '1px solid #333',
+                        borderRadius: '3px',
+                        opacity: canHold ? 1 : 0.5,
+                        boxShadow: cell !== 0 ? 
+                          `inset 0 0 6px rgba(255,255,255,0.1), inset 0 0 2px rgba(0,0,0,0.3)` : 
+                          'none',
+                        position: 'relative'
                       }}
-                    />
+                    >
+                      {cell !== 0 && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '2px',
+                          left: '2px',
+                          width: '4px',
+                          height: '4px',
+                          background: 'rgba(255,255,255,0.3)',
+                          borderRadius: '50%',
+                          boxShadow: '0 0 3px rgba(255,255,255,0.2)'
+                        }} />
+                      )}
+                    </div>
                   ))}
                 </div>
               ))}
@@ -358,13 +432,108 @@ function TetrisGame() {
             <div style={{
               width: 80,
               height: 80,
-              background: '#333',
+              background: 'linear-gradient(145deg, #2a2a2a, #333)',
               border: '1px solid #555',
+              borderRadius: '4px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#666',
-              fontSize: '12px'
+              fontSize: '12px',
+              boxShadow: 'inset 0 0 10px rgba(0,0,0,0.3)'
+            }}>
+              {lang === 'zh' ? '空' : 'EMPTY'}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 渲染預覽塊
+  const renderNext = () => {
+    return (
+      <div style={{
+        width: 120,
+        height: 120,
+        background: 'linear-gradient(145deg, #1a1a1a, #2a2a2a)',
+        padding: 8,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        borderRadius: '6px',
+        boxShadow: 'inset 0 0 15px rgba(0,0,0,0.3)'
+      }}>
+        <div style={{ 
+          color: '#fff', 
+          fontSize: '12px', 
+          marginBottom: 8, 
+          textAlign: 'center',
+          fontWeight: 'bold',
+          textShadow: '0 1px 2px rgba(0,0,0,0.8)'
+        }}>
+          {LANGS[lang].next}
+        </div>
+        <div style={{
+          width: 80,
+          height: 80,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          {nextPiece ? (
+            <div style={{ display: 'inline-block' }}>
+              {nextPiece.shape.map((row, y) => (
+                <div key={y} style={{ display: 'flex' }}>
+                  {row.map((cell, x) => (
+                    <div
+                      key={x}
+                      style={{
+                        width: 25,
+                        height: 25,
+                        background: cell !== 0 ? 
+                          `linear-gradient(135deg, ${COLORS[nextPiece.type]}, ${COLORS[nextPiece.type]}dd)` : 
+                          '#1a1a1a',
+                        border: cell !== 0 ? 
+                          `1px solid ${COLORS[nextPiece.type]}80` : 
+                          '1px solid #333',
+                        borderRadius: '3px',
+                        boxShadow: cell !== 0 ? 
+                          `inset 0 0 6px rgba(255,255,255,0.1), inset 0 0 2px rgba(0,0,0,0.3)` : 
+                          'none',
+                        position: 'relative'
+                      }}
+                    >
+                      {cell !== 0 && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '2px',
+                          left: '2px',
+                          width: '4px',
+                          height: '4px',
+                          background: 'rgba(255,255,255,0.3)',
+                          borderRadius: '50%',
+                          boxShadow: '0 0 3px rgba(255,255,255,0.2)'
+                        }} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{
+              width: 80,
+              height: 80,
+              background: 'linear-gradient(145deg, #2a2a2a, #333)',
+              border: '1px solid #555',
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#666',
+              fontSize: '12px',
+              boxShadow: 'inset 0 0 10px rgba(0,0,0,0.3)'
             }}>
               {lang === 'zh' ? '空' : 'EMPTY'}
             </div>
@@ -407,26 +576,56 @@ function TetrisGame() {
       })
     }
     return (
-      <div style={{ display: 'inline-block', background: '#222', padding: 8 }}>
+      <div style={{ 
+        display: 'inline-block', 
+        background: 'linear-gradient(145deg, #1a1a1a, #2a2a2a)', 
+        padding: 12,
+        borderRadius: '8px',
+        boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)'
+      }}>
         {display.map((row, y) => (
           <div key={y} style={{ display: 'flex' }}>
             {row.map((cell, x) => {
               let color = COLORS[Math.abs(cell)]
               let opacity = 1
+              let isGhost = false
               if (cell < 0) {
-                opacity = 0.3 // ghost 透明
+                opacity = 0.2 // ghost 更透明
+                isGhost = true
               }
               return (
                 <div
                   key={x}
                   style={{
-                    width: 24,
-                    height: 24,
-                    background: color,
-                    border: '1px solid #333',
+                    width: 26,
+                    height: 26,
+                    background: cell === 0 ? '#1a1a1a' : 
+                      isGhost ? color :
+                      `linear-gradient(135deg, ${color}, ${color}dd)`,
+                    border: cell === 0 ? '1px solid #333' : 
+                      isGhost ? `1px solid ${color}40` :
+                      `1px solid ${color}80`,
+                    borderRadius: '3px',
                     opacity,
+                    boxShadow: cell === 0 ? 'none' :
+                      isGhost ? 'none' :
+                      `inset 0 0 8px rgba(255,255,255,0.1), inset 0 0 2px rgba(0,0,0,0.3)`,
+                    position: 'relative'
                   }}
-                />
+                >
+                  {cell > 0 && !isGhost && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '2px',
+                      left: '2px',
+                      width: '6px',
+                      height: '6px',
+                      background: 'rgba(255,255,255,0.3)',
+                      borderRadius: '50%',
+                      boxShadow: '0 0 4px rgba(255,255,255,0.2)'
+                    }} />
+                  )}
+                </div>
               )
             })}
           </div>
@@ -464,6 +663,8 @@ function TetrisGame() {
         {LANGS[lang].lang}
       </button>
 
+
+
       {/* 主要遊戲內容 - 置中 */}
       <div style={{
         display: 'flex',
@@ -484,6 +685,16 @@ function TetrisGame() {
               zIndex: 10
             }}>
               {renderHold()}
+            </div>
+            
+            {/* 預覽塊區域 */}
+            <div style={{
+              position: 'absolute',
+              top: 20,
+              right: -140,
+              zIndex: 10
+            }}>
+              {renderNext()}
             </div>
             {renderBoard()}
             
@@ -555,6 +766,24 @@ function TetrisGame() {
                 </>
               ) : null}
             </div>
+            
+            {/* Combo顯示 - 覆蓋在遊戲畫面上 */}
+            {comboCount > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: '20%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                color: '#ff6b6b',
+                fontSize: '28px',
+                fontWeight: 'bold',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                zIndex: 100,
+                animation: 'pulse 0.5s ease-in-out'
+              }}>
+                {LANGS[lang].combo} x{comboCount}!
+              </div>
+            )}
             
             {/* 暫停提示 - 覆蓋在遊戲畫面上 */}
             {paused && (
